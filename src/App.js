@@ -1,28 +1,27 @@
 import { useEffect, useRef, useState } from "react";
 import initWeb3 from "./utils/web3";
-import { abi, contractAddress } from "./utils/lottery";
+import { abi, contractAddress } from "./utils/url";
 import "./App.css";
 
 const { ethereum } = window;
 
 function App() {
-  const lotteryContract = useRef(null);
+  const GANACHE_NETWORK_ID = '0x539';
+  const urlContract = useRef(null);
   const [web3, setWeb3] = useState(null);
   const [doneCheckingForMetaMask, setDoneCheckingForMetaMask] = useState(false);
   const [connected, setConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
-  const [isRinkebyChain, setIsRinkebyChain] = useState(false);
+  const [isGanacheChain, setIsGanacheChain] = useState(false);
 
-  const [manager, setManager] = useState("");
-  const [players, setPlayers] = useState([]);
-  const [balance, setBalance] = useState("");
-  const [bidValue, setBidValue] = useState("");
-  const [url, setUrl] = useState("");
+  const [currentUrl, setCurrentUrl] = useState("");
+  const [newUrl, setNewUrl] = useState("");
+  const [maxBid, setMaxBid] = useState("");
+  const [currentBidValue, setCurrentBidValue] = useState("");
 
   const [message, setMessage] = useState("");
 
-  const [enteringLottery, setEnteringLottery] = useState(false);
-  const [pickingWinner, setPickingWinner] = useState(false);
+  const [settingNewUrl, setSettingNewUrl] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,16 +34,17 @@ function App() {
           setWeb3(web3Instance);
 
           // Transactions done in this app must be done on the Rinkeby test network.
+          // TODO: set this to mainnet after deploying the smart contract.
           const chainId = await ethereum.request({ method: 'eth_chainId' });
-          if (chainId === "0x4") {
-            setIsRinkebyChain(true);
+          if (chainId === GANACHE_NETWORK_ID) {
+            setIsGanacheChain(true);
           }
 
           setDoneCheckingForMetaMask(true);
 
           if (web3Instance !== null) {
             // Create Contract JS object.
-            lotteryContract.current = new web3Instance.eth.Contract(abi, contractAddress);
+            urlContract.current = new web3Instance.eth.Contract(abi, contractAddress);
 
             // Check to see if user is already connected.
             try {
@@ -76,10 +76,10 @@ function App() {
 
     if (connected) {
       async function handler() {
-        const manager = await lotteryContract.current.methods.manager().call();
+        const url = await urlContract.current.methods.url().call();
+        setCurrentUrl(url);
         if (!cancelled) {
-          setManager(manager);
-          await updatePlayersListAndBalance();
+          await updateMaxBidAndUrl();
         }
       }
       handler();
@@ -104,41 +104,51 @@ function App() {
   };
 
   /**
-   * Define a function to update players list and balance in the page view
+   * Define a function to update the current max bid and the url in the page view
    * without the user having to perform a manual page reload.
    */
-  const updatePlayersListAndBalance = async () => {
-    const players = await lotteryContract.current.methods.getPlayers().call();
-    const balance = await web3.eth.getBalance(lotteryContract.current.options.address);
-    setPlayers(players);
-    setBalance(balance);
+  const updateMaxBidAndUrl = async () => {
+    const maxBid = await urlContract.current.methods.maxBid().call();
+    const url = await urlContract.current.methods.url().call();
+    setMaxBid(web3.utils.fromWei(maxBid, 'ether'));
+    setCurrentUrl(url);
   };
+
+  const isValidHttpUrl = (string) => {
+    let url;
+    
+    try {
+      url = new URL(string);
+    } catch (_) {
+      return false;  
+    }
+
+    return url.protocol === "http:" || url.protocol === "https:";
+  }
 
   const onSubmit = async (event) => {
     event.preventDefault();
-    setEnteringLottery(true);
-    const accounts = await web3.eth.getAccounts();
-    showMessage("Waiting on transaction success...");
-    await lotteryContract.current.methods.enter().send({
-      from: accounts[0],
-      value: web3.utils.toWei(bidValue, "ether")
-    });
-    showMessage("You have been entered!");
-    updatePlayersListAndBalance();
-    setEnteringLottery(false);
-  };
+    
+    if (!isValidHttpUrl(newUrl)) {
+      showMessage('Invalid URL (hint: must start with http or https)');
+      return;
+    }
 
-  const pickWinner = async (event) => {
-    event.preventDefault();
-    setPickingWinner(true);
+    setSettingNewUrl(true);
     const accounts = await web3.eth.getAccounts();
     showMessage("Waiting on transaction success...");
-    await lotteryContract.current.methods.pickWinner().send({
-      from: accounts[0]
-    });
-    showMessage("A winner has been picked!");
-    updatePlayersListAndBalance();
-    setPickingWinner(false);
+    try {
+      await urlContract.current.methods.setThisUrl(newUrl).send({
+        from: accounts[0],
+        value: web3.utils.toWei(currentBidValue, 'ether')
+      });
+      showMessage('')
+    } catch (e) {
+      showMessage(`Error setting a new URL: "${e.message}"`);
+    } finally {
+      setSettingNewUrl(false);
+      updateMaxBidAndUrl();
+    }
   };
 
   const showMessage = async (msg) => {
@@ -150,7 +160,7 @@ function App() {
       {web3 === null && !doneCheckingForMetaMask && (
         <div className="page-center">
           <div className="alert info">
-            <h1 className="no-margin-top">Take This URL</h1>
+            <h1 className="no-margin-top">Own This URL</h1>
             <p className="no-margin">Checking for MetaMask Ethereum Provider...</p>
           </div>
         </div>
@@ -159,7 +169,7 @@ function App() {
       {web3 === null && doneCheckingForMetaMask && (
         <div className="page-center">
           <div className="alert error">
-            <h1 className="no-margin-top">Take This URL</h1>
+            <h1 className="no-margin-top">Own This URL</h1>
             <p className="no-margin">
               MetaMask is required to run this app! Please install MetaMask and then refresh this
               page.
@@ -168,24 +178,24 @@ function App() {
         </div>
       )}
 
-      {web3 !== null && doneCheckingForMetaMask && !isRinkebyChain && (
+      {web3 !== null && doneCheckingForMetaMask && !isGanacheChain && (
         <div className="page-center">
           <div className="alert error">
-            <h1 className="no-margin-top">Take This URL</h1>
+            <h1 className="no-margin-top">Own This URL</h1>
             <p className="no-margin">
-              You must be connected to the <strong>Rinkeby test network</strong> for Ether
+              You must be connected to the <strong>Ganache test network</strong> for Ether
               transactions made via this app.
             </p>
           </div>
         </div>
       )}
 
-      {web3 !== null && !connected && isRinkebyChain && (
+      {web3 !== null && !connected && isGanacheChain && (
         <div className="page-center">
           <section className="card">
-            <h1 className="no-margin-top">Take This URL</h1>
+            <h1 className="no-margin-top">Own This URL</h1>
             <p>
-              Want to take this URL? Connect with MetaMask and start bidding for this URL right away!
+              Want to set this URL? Connect with MetaMask and start bidding for this space right away!
             </p>
             <div className="center">
               <button
@@ -201,31 +211,37 @@ function App() {
         </div>
       )}
 
-      {web3 !== null && connected && isRinkebyChain && (
+      {web3 !== null && connected && isGanacheChain && (
         <div className="page-center">
           <section className="card">
-            <h1 className="no-margin-top">Take This URL</h1>
-            <p>
-              The top bidder gets to set the below URL to whatever they would like.
-              The top bid is currently {manager} X ether.
+            <h1 className="no-margin-top">Own This URL</h1>
+            <p style={{textAlign: "center"}}>
+              The top bidder can set the URL to anything.
             </p>
 
+            <div style={{textAlign: "center"}} >
+              <a href={currentUrl}>
+                {currentUrl}
+              </a>
+            </div>
+
+            <p style={{textAlign: "center"}}>
+              The top bid is currently {maxBid} ether.
+            </p>
             <hr />
 
             <form onSubmit={onSubmit}>
-              <h4>Want to set this URL?</h4>
+              <h4>Set The URL</h4>
               <div>
-                <label>Amount of ether to enter:</label>{" "}
-                <input value={bidValue} onChange={(event) => setBidValue(event.target.bidValue)} />{" "}
-                <label>The new URL:</label>{" "}
-                <input value={url} onChange={(event) => setUrl(event.target.url)} />{" "}
-                <button className="btn primaryBtn" type="submit" disabled={enteringLottery}>
+                <label>URL:</label>
+                <input value={newUrl} onChange={(event) => setNewUrl(event.target.value)} />
+                <label>Bid (ether):</label>
+                <input value={currentBidValue} onChange={(event) => setCurrentBidValue(event.target.value)} />
+                <button className="btn primaryBtn" type="submit" disabled={settingNewUrl}>
                   Enter
                 </button>
               </div>
             </form>
-
-            <hr className="spacey" />
 
             <h2>{message}</h2>
           </section>
