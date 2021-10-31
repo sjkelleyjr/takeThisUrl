@@ -1,14 +1,33 @@
 /***
- * The following contract address and ABI are for a deployment of the Lottery contract made to the
+ * The following contract address and ABI are for a deployment of the Url contract made to the
  * Ganache Test Network. The contract itself was compiled using version 0.8.5 of the Solidity
  * compiler.
  *
  * NOTE: Update the contractAddress and abi variables to those for your own deployed contract.
  */
 
-export const contractAddress = "0x63fe561F3b36582B6D55656b7EccE6c4eD6b6075";
+export const contractAddress = "0x3f0823eB81161a603E41f5B64511fDDd006c7fBD";
 
 export const abi = [
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "previousOwner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
+    ],
+    "name": "OwnershipTransferred",
+    "type": "event"
+  },
   {
     "inputs": [],
     "name": "maxBid",
@@ -20,6 +39,41 @@ export const abi = [
       }
     ],
     "stateMutability": "view",
+    "type": "function",
+    "constant": true
+  },
+  {
+    "inputs": [],
+    "name": "owner",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function",
+    "constant": true
+  },
+  {
+    "inputs": [],
+    "name": "renounceOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
+    ],
+    "name": "transferOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -33,7 +87,8 @@ export const abi = [
       }
     ],
     "stateMutability": "view",
-    "type": "function"
+    "type": "function",
+    "constant": true
   },
   {
     "inputs": [
@@ -46,6 +101,14 @@ export const abi = [
     "name": "setThisUrl",
     "outputs": [],
     "stateMutability": "payable",
+    "type": "function",
+    "payable": true
+  },
+  {
+    "inputs": [],
+    "name": "withdraw",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   }
-];
+]

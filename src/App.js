@@ -6,13 +6,13 @@ import "./App.css";
 const { ethereum } = window;
 
 function App() {
-  const GANACHE_NETWORK_ID = '0x539';
+  const MAIN_NETWORK_ID = '0x1';
   const urlContract = useRef(null);
   const [web3, setWeb3] = useState(null);
   const [doneCheckingForMetaMask, setDoneCheckingForMetaMask] = useState(false);
   const [connected, setConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
-  const [isGanacheChain, setIsGanacheChain] = useState(false);
+  const [isMainnetChain, setIsMainnetChain] = useState(false);
 
   const [currentUrl, setCurrentUrl] = useState("");
   const [newUrl, setNewUrl] = useState("");
@@ -33,11 +33,10 @@ function App() {
           const web3Instance = await initWeb3();
           setWeb3(web3Instance);
 
-          // Transactions done in this app must be done on the Rinkeby test network.
-          // TODO: set this to mainnet after deploying the smart contract.
+          // Transactions done in this app must be done on the Ethereum mainnet.
           const chainId = await ethereum.request({ method: 'eth_chainId' });
-          if (chainId === GANACHE_NETWORK_ID) {
-            setIsGanacheChain(true);
+          if (chainId === MAIN_NETWORK_ID) {
+            setIsMainnetChain(true);
           }
 
           setDoneCheckingForMetaMask(true);
@@ -178,19 +177,19 @@ function App() {
         </div>
       )}
 
-      {web3 !== null && doneCheckingForMetaMask && !isGanacheChain && (
+      {web3 !== null && doneCheckingForMetaMask && !isMainnetChain && (
         <div className="page-center">
           <div className="alert error">
             <h1 className="no-margin-top">Own This URL</h1>
             <p className="no-margin">
-              You must be connected to the <strong>Ganache test network</strong> for Ether
+              You must be connected to the <strong>Ethereum Mainnet</strong> for Ether
               transactions made via this app.
             </p>
           </div>
         </div>
       )}
 
-      {web3 !== null && !connected && isGanacheChain && (
+      {web3 !== null && !connected && isMainnetChain && (
         <div className="page-center">
           <section className="card">
             <h1 className="no-margin-top">Own This URL</h1>
@@ -211,7 +210,7 @@ function App() {
         </div>
       )}
 
-      {web3 !== null && connected && isGanacheChain && (
+      {web3 !== null && connected && isMainnetChain && (
         <div className="page-center">
           <section className="card">
             <h1 className="no-margin-top">Own This URL</h1>
